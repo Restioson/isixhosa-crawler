@@ -6,7 +6,7 @@ import tldextract
 sites = dict()
 
 if __name__ == "__main__":
-    f = open("out/xhosa.jl")
+    f = open("out/isixhosa.jl")
     lines = f.readlines()
     f.close()
 

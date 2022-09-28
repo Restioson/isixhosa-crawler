@@ -9,14 +9,14 @@ from nltk.tokenize import sent_tokenize
 from textwrap import wrap
 
 BLOCK_LIST = (
-    # Known to contain lots of structured, downloadable Xhosa - not interesting to crawl
+    # Known to contain lots of structured, downloadable isiXhosa - not interesting to crawl
     "wikipedia.org", "wikidata.org", "wikimedia.org", "wiktionary.org", "wikisource.org",
 
     # Navigation elements are translated, and/or content is machine translated
     "airbnb.co.za", "airbnb.com", "postermywall.com",
 
     # Exist solely to provide (often machine translated) dictionaries and translations
-    "opentran.net", "glosbe.com", "translated.net", "nativelib.net", "bab.la",
+    "opentran.net", "glosbe.com", "translated.net", "nativelib.net", "bab.la", "english-dictionary.help",
 
     # Machine translated (overlaps slightly with GTranslate)
     "yatohandtools.com", "birmiss.com", "delachieve.com", "eferrit.com", "skopelos.com",
@@ -58,8 +58,8 @@ def identify(sock, text):
     return response
 
 
-class XhosaSpider(scrapy.Spider):
-    name = "xhosa"
+class IsiXhosaSpider(scrapy.Spider):
+    name = "isixhosa"
     link_extractor = LinkExtractor()
 
     def __init__(self, **kwargs):
@@ -76,7 +76,7 @@ class XhosaSpider(scrapy.Spider):
     def identify(self, text):
         return identify(self.sock, text)
 
-    def is_xhosa(self, text, confidence=0.5):
+    def is_isixhosa(self, text, confidence=0.5):
         res = self.identify(text)
         return res is not None and res["language"] == "isiXhosa" and res["confidence"] > confidence
 
@@ -94,7 +94,7 @@ class XhosaSpider(scrapy.Spider):
         # isiXhosa is what is most interesting, but isiZulu is also interesting as it is very similar to isiXhosa
         # It is expected that the language ID algorithm can distinguish between the two, but for testing and debugging,
         # it is useful to be able to see if it may be struggling to distinguish between them
-        n_xhosa, n_zulu = 0, 0
+        n_isixhosa, n_isizulu = 0, 0
         for sentence in sentences:
             ret = self.identify(sentence)
 
@@ -106,14 +106,14 @@ class XhosaSpider(scrapy.Spider):
                 continue
 
             if ret["language"] == "isiXhosa":
-                n_xhosa += 1
+                n_isixhosa += 1
             elif ret["language"] == "isiZulu":
-                n_zulu += 1
+                n_isizulu += 1
 
-        frac_xhosa, frac_zulu = n_xhosa / len(sentences), n_zulu / len(sentences)
+        frac_isixhosa, frac_isizulu = n_isixhosa / len(sentences), n_isizulu / len(sentences)
 
         def log(action):
-            print(f"{action} {response.url}. %/# Xhosa: {frac_xhosa * 100:.2f}/{n_xhosa}. %/# Zulu: {frac_zulu * 100:.2f}/{n_zulu}")
+            print(f"{action} {response.url}. %/# isiXhosa: {frac_isixhosa * 100:.2f}/{n_isixhosa}. %/# isiZulu: {frac_isizulu * 100:.2f}/{n_isizulu}")
 
         # Skip page if it is machine translated. Specifically, GTranslate is checked since it is very common
         g_translate = any(soup.find_all(
@@ -130,12 +130,12 @@ class XhosaSpider(scrapy.Spider):
 
         crawl_all = False
 
-        if n_xhosa >= 5 or frac_xhosa >= 0.4:
+        if n_isixhosa >= 5 or frac_isixhosa >= 0.4:
             log("Saving")
             crawl_all = True
-            yield {"url": response.url, "frac_xhosa": frac_xhosa, "frac_zulu": frac_zulu, "content": response.text}
-        elif n_xhosa == 0:
-            log("No xhosa here")
+            yield {"url": response.url, "frac_isixhosa": frac_isixhosa, "frac_isizulu": frac_isizulu, "content": response.text}
+        elif n_isixhosa == 0:
+            log("No isiXhosa here")
         else:
             crawl_all = True
             log("Continuing crawl")
@@ -145,8 +145,8 @@ class XhosaSpider(scrapy.Spider):
         for link in self.link_extractor.extract_links(response):
             url = response.urljoin(link.url)
             has_xhosa = "xhosa" in link.text.lower()
-            is_xhosa = self.is_xhosa(link.text)
-            priority = int(has_xhosa) + int(is_xhosa)
-            if not blocked(url) and (crawl_all or has_xhosa or is_xhosa):
+            is_isixhosa = self.is_isixhosa(link.text)
+            priority = int(has_xhosa) + int(is_isixhosa)
+            if not blocked(url) and (crawl_all or has_xhosa or is_isixhosa):
                 yield {"from": response.url, "to": url}
                 yield Request(url, callback=self.parse, priority=priority)

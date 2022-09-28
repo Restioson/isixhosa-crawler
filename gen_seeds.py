@@ -1,6 +1,6 @@
 import csv
 
-from csc2005z.spiders.xhosa import blocked, identify
+from crawler.spiders.isixhosa import blocked, identify
 import requests
 import socket
 import random

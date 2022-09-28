@@ -1,4 +1,4 @@
-# Scrapy settings for csc2005z project
+# Scrapy settings for crawler project
 
 DEPTH_PRIORITY = 1
 SCHEDULER_DISK_QUEUE = 'scrapy.squeues.PickleFifoDiskQueue'
@@ -6,10 +6,10 @@ SCHEDULER_MEMORY_QUEUE = 'scrapy.squeues.FifoMemoryQueue'
 
 FEED_EXPORT_ENCODING = 'utf-8'
 
-BOT_NAME = 'csc2005z'
+BOT_NAME = 'crawler'
 
-SPIDER_MODULES = ['csc2005z.spiders']
-NEWSPIDER_MODULE = 'csc2005z.spiders'
+SPIDER_MODULES = ['crawler.spiders']
+NEWSPIDER_MODULE = 'crawler.spiders'
 SCHEDULER_PRIORITY_QUEUE = 'scrapy.pqueues.DownloaderAwarePriorityQueue'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
@@ -36,24 +36,6 @@ CONCURRENT_REQUESTS_PER_DOMAIN = 16
 
 # Disable Telnet Console (enabled by default)
 #TELNETCONSOLE_ENABLED = False
-
-# Enable or disable downloader middlewares
-# See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-#DOWNLOADER_MIDDLEWARES = {
-#    'csc2005z.middlewares.Csc2005ZDownloaderMiddleware': 543,
-#}
-
-# Enable or disable extensions
-# See https://docs.scrapy.org/en/latest/topics/extensions.html
-#EXTENSIONS = {
-#    'scrapy.extensions.telnet.TelnetConsole': None,
-#}
-
-# Configure item pipelines
-# See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'csc2005z.pipelines.Csc2005ZPipeline': 300,
-#}
 
 AUTOTHROTTLE_ENABLED = True
 # The initial download delay

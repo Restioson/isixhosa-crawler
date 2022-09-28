@@ -1,12 +1,12 @@
 import json
-from csc2005z.spiders.xhosa import blocked
+from crawler.spiders.isixhosa import blocked
 
 if __name__ == "__main__":
-    in_file = open("out/xhosa.jl")
+    in_file = open("out/isixhosa.jl")
     lines = in_file.readlines()
     in_file.close()
 
-    out_file = open("out/xhosa.new.jl", "w")
+    out_file = open("out/isixhosa.new.jl", "w")
 
     for line in lines:
         record = json.loads(line)
