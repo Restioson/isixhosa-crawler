@@ -1,0 +1,5 @@
+.scrapy
+crawls/
+out/
+venv/
+google_secrets.txt
