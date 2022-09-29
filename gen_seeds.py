@@ -7,7 +7,7 @@ import random
 
 with open('google_secrets.txt') as f:
     lines = f.readlines()
-    key, engine_id = lines[0], lines[1]
+    engine_id, key = lines[0].strip(), lines[1].strip()
 
 words = set()
 with open('words.csv') as csv_file:
@@ -42,9 +42,9 @@ try:
             if "snippet" not in result:
                 continue
 
-            is_xhosa = identify(sock, result["snippet"])["language"] == "isiXhosa"
+            is_isixhosa = identify(sock, result["snippet"])["language"] == "isiXhosa"
             crawlable_document = not (url.endswith("pdf") or url.endswith("xlsx") or url.endswith("docx"))
-            if is_xhosa and not blocked(url) and crawlable_document:
+            if is_isixhosa and not blocked(url) and crawlable_document:
                 urls.add(url)
 
         print(f"{len(urls)} in total")

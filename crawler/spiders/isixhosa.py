@@ -7,6 +7,7 @@ import socket
 import json
 from nltk.tokenize import sent_tokenize
 from textwrap import wrap
+import time
 
 BLOCK_LIST = (
     # Known to contain lots of structured, downloadable isiXhosa - not interesting to crawl
@@ -17,6 +18,7 @@ BLOCK_LIST = (
 
     # Exist solely to provide (often machine translated) dictionaries and translations
     "opentran.net", "glosbe.com", "translated.net", "nativelib.net", "bab.la", "english-dictionary.help",
+    "kasahorow.org",
 
     # Machine translated (overlaps slightly with GTranslate)
     "yatohandtools.com", "birmiss.com", "delachieve.com", "eferrit.com", "skopelos.com",
@@ -28,7 +30,7 @@ BLOCK_LIST = (
     "paradacreativa.es", "currentschoolnews.com",
 
     # GTranslate comment stripped
-    "worldscholarshub.com", "wikiejemplos.com", "aspergillosis.org",
+    "worldscholarshub.com", "wikiejemplos.com", "aspergillosis.org", "todoroblox.com"
 )
 
 
@@ -42,15 +44,16 @@ def identify(sock, text):
     response_text = None
     response = None
 
-    for time in range(0, 3):
+    for _ in range(0, 3):
         try:
             sock.send(text.encode("utf-8"))
             response_text = sock.recv(4096).decode("utf-8").replace('confidence:"', 'confidence":')
             response = json.loads(response_text)
         except socket.error as err:
+            print(f"err = '{err}'; text =  '{text}'")
+            time.sleep(5)
             sock = socket.socket()
             sock.connect((socket.gethostname(), 7770))
-            print(f"err = '{err}'; text =  '{text}'")
         except json.decoder.JSONDecodeError as err:
             print(f"err = '{err}'; text = '{text}'; response_text = '{response_text}'")
             break
@@ -67,11 +70,12 @@ class IsiXhosaSpider(scrapy.Spider):
         f = open("seeds.txt")
         self.start_urls = f.readlines()
         f.close()
+
         self.sock = socket.socket()
         self.sock.connect((socket.gethostname(), 7770))
 
     def start_requests(self):
-        return (Request(url, callback=self.parse, priority=1000) for url in self.start_urls)
+        return [Request(url, callback=self.parse, priority=1000, dont_filter=False) for url in self.start_urls]
 
     def identify(self, text):
         return identify(self.sock, text)
@@ -81,6 +85,12 @@ class IsiXhosaSpider(scrapy.Spider):
         return res is not None and res["language"] == "isiXhosa" and res["confidence"] > confidence
 
     def parse(self, response, **kwargs):
+        # Make sure to definitely crawl every seed URL. Then, set the URLs to [] so that it isn't done twice
+        reqs = self.start_requests()
+        self.start_urls = []
+        for req in reqs:
+            yield req
+
         # Parse the document and extract sentences for language ID
         soup = BeautifulSoup(response.text, 'lxml')
         text = soup.get_text(" ", strip=True)
@@ -120,11 +130,15 @@ class IsiXhosaSpider(scrapy.Spider):
             string=lambda elem: isinstance(elem, Comment) and elem.strip().startswith("delivered by GTranslate")
         ))
         if g_translate:
+            # We do save it, though, since it is useful to know what portion of domains are using GTranslate
+            yield {"url": response.url, "g_translate": True}
             log("Skipping (GTranslate)")
             return None
 
-        # Also skip a page if it is in the bla
+        # Also skip a page if it is in the blacklist
         if blocked(response.url):
+            # We do still save the page - see rationale above for why GTranslate is saved too
+            yield {"url": response.url, "g_translate": True}
             log("Skipping (Blacklisted)")
             return None
 
