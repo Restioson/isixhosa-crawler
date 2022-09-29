@@ -1,10 +1,12 @@
-use std::collections::HashMap;
-use anyhow::__private::kind::TraitKind;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use clap::Parser;
 use serde::Deserialize;
 use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
 use tldextract::{TldExtractor, TldOption};
+use dashmap::DashMap;
+use rayon::prelude::*;
+use rayon::iter::IndexedParallelIterator;
 
 #[derive(Parser)]
 struct Options {
@@ -22,7 +24,7 @@ const LAST_INDEX_FILE: &str = "out/last_index.txt";
 fn main() -> Result<()> {
     let opts = Options::parse();
     let file = std::fs::read_to_string(opts.file)?;
-    let lines = file.lines();
+    let lines: Vec<&str> = file.lines().collect();
 
     let last: usize = if opts.since_last {
         let last = std::fs::read_to_string(LAST_INDEX_FILE)
@@ -34,32 +36,40 @@ fn main() -> Result<()> {
         0
     };
 
-    let mut sites = HashMap::new();
+    let sites = DashMap::new();
 
     let extractor = TldExtractor::new(TldOption::default());
-    let mut new_last = last;
-    for line in lines.skip(last) {
-        let entry: Entry = serde_json::from_str(line)?;
-        match entry {
-            Entry::Site { url } => {
-                let extracted = extractor.extract(&url)?;
-                let domain = extracted.domain.ok_or(anyhow!("No domain"))?;
-                let suffix = extracted.suffix.ok_or(anyhow!("No suffix"))?;
-                (*sites.entry(format!("{domain}.{suffix}")).or_insert(0)) += 1;
-                if opts.verbose {
-                    println!("{}", url)
-                }
-            },
-            Entry::Link { .. } => (),
-        }
-        new_last += 1;
+    let new_last = AtomicUsize::new(last);
+
+    lines
+        .into_par_iter()
+        .skip(last)
+        .for_each(|line| {
+            let entry: Entry = serde_json::from_str(line).unwrap();
+            match entry {
+                Entry::Site { url } => {
+                    let extracted = extractor.extract(&url).unwrap();
+                    let domain = extracted.domain.ok_or(anyhow!("No domain")).unwrap();
+                    let suffix = extracted.suffix.ok_or(anyhow!("No suffix")).unwrap();
+                    (*sites.entry(format!("{domain}.{suffix}")).or_insert(0)) += 1;
+                    if opts.verbose {
+                        println!("{}", url)
+                    }
+                },
+                Entry::Link { .. } => (),
+            }
+            new_last.fetch_add(1, Ordering::SeqCst);
+        });
+
+    std::fs::write(LAST_INDEX_FILE, new_last.load(Ordering::SeqCst).to_string())?;
+
+    let mut sum = 0;
+    for entry in sites.iter().sorted_by_key(|entry| *entry.value()) {
+        println!("{}: {}", entry.key(), entry.value());
+        sum += entry.value();
     }
 
-    std::fs::write(LAST_INDEX_FILE, new_last.to_string())?;
-
-    for (site, count) in sites.iter().sorted_by_key(|(_, count)| **count) {
-        println!("{}: {}", site, count);
-    }
+    println!("{}", sum);
 
     Ok(())
 }
@@ -68,5 +78,6 @@ fn main() -> Result<()> {
 #[serde(untagged)]
 enum Entry {
     Site { url: String },
+    #[allow(dead_code)]
     Link { from: String, to: String },
 }
