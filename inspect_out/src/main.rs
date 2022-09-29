@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use clap::Parser;
 use serde::Deserialize;
@@ -6,7 +8,6 @@ use itertools::Itertools;
 use tldextract::{TldExtractor, TldOption};
 use dashmap::DashMap;
 use rayon::prelude::*;
-use rayon::iter::IndexedParallelIterator;
 
 #[derive(Parser)]
 struct Options {
@@ -23,8 +24,7 @@ const LAST_INDEX_FILE: &str = "out/last_index.txt";
 
 fn main() -> Result<()> {
     let opts = Options::parse();
-    let file = std::fs::read_to_string(opts.file)?;
-    let lines: Vec<&str> = file.lines().collect();
+    let file = BufReader::new(File::open(opts.file)?);
 
     let last: usize = if opts.since_last {
         let last = std::fs::read_to_string(LAST_INDEX_FILE)
@@ -41,11 +41,13 @@ fn main() -> Result<()> {
     let extractor = TldExtractor::new(TldOption::default());
     let new_last = AtomicUsize::new(last);
 
-    lines
-        .into_par_iter()
+    file
+        .lines()
         .skip(last)
+        .map(Result::unwrap)
+        .par_bridge()
         .for_each(|line| {
-            let entry: Entry = serde_json::from_str(line).unwrap();
+            let entry: Entry = serde_json::from_str(&line).unwrap();
             match entry {
                 Entry::Site { url } => {
                     let extracted = extractor.extract(&url).unwrap();
