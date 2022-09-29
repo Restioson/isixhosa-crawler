@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -21,6 +22,13 @@ struct Options {
 }
 
 const LAST_INDEX_FILE: &str = "out/last_index.txt";
+
+fn extract_domain(extractor: &TldExtractor, url: &str) -> String {
+    let extracted = extractor.extract(&url).unwrap();
+    let domain = extracted.domain.ok_or(anyhow!("No domain")).unwrap();
+    let suffix = extracted.suffix.ok_or(anyhow!("No suffix")).unwrap();
+    format!("{domain}.{suffix}")
+}
 
 fn main() -> Result<()> {
     let opts = Options::parse();
@@ -50,10 +58,7 @@ fn main() -> Result<()> {
             let entry: Entry = serde_json::from_str(&line).unwrap();
             match entry {
                 Entry::Site { url } => {
-                    let extracted = extractor.extract(&url).unwrap();
-                    let domain = extracted.domain.ok_or(anyhow!("No domain")).unwrap();
-                    let suffix = extracted.suffix.ok_or(anyhow!("No suffix")).unwrap();
-                    (*sites.entry(format!("{domain}.{suffix}")).or_insert(0)) += 1;
+                    (*sites.entry(extract_domain(&extractor, &url)).or_insert(0)) += 1;
                     if opts.verbose {
                         println!("{}", url)
                     }
@@ -65,13 +70,31 @@ fn main() -> Result<()> {
 
     std::fs::write(LAST_INDEX_FILE, new_last.load(Ordering::SeqCst).to_string())?;
 
-    let mut sum = 0;
-    for entry in sites.iter().sorted_by_key(|entry| *entry.value()) {
-        println!("{}: {}", entry.key(), entry.value());
-        sum += entry.value();
-    }
+    let sum: usize = sites
+        .iter()
+        .sorted_by_key(|entry| *entry.value())
+        .map(|entry| {
+            println!("{}: {}", entry.key(), entry.value());
+            *entry.value()
+        })
+        .sum();
 
     println!("{}", sum);
+
+    let crawled_sites: HashSet<String> = sites
+        .iter()
+        .map(|entry| entry.key().clone())
+        .collect();
+
+    let seed_sites = std::fs::read_to_string("seeds.txt")?
+        .lines()
+        .map(|url| extract_domain(&extractor, url))
+        .collect();
+
+    println!("\nList of sites crawled not in seeds:");
+    for diff in crawled_sites.difference(&seed_sites) {
+        println!("{diff}: {}", *sites.get(diff).unwrap());
+    }
 
     Ok(())
 }
