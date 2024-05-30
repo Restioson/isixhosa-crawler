@@ -16,7 +16,7 @@ Results associated with the crawler were published in the SAICSIT2023 conference
 
 The final paper is available from [SpringerLink](https://link.springer.com/chapter/10.1007/978-3-031-39652-6_2), and a pre-print version is available for free from [UCT CS's publications archive](https://pubs.cs.uct.ac.za/id/eprint/1551/).
 
-The dataset itself is under review for release on UCT's public FigShare instance, ZivaHub, and will be linked here after it is approved.
+The dataset itself is available [here](https://zivahub.uct.ac.za/articles/dataset/Focused_Crawling_for_Automated_IsiXhosa_Corpus_Building_-_Final_Crawl_Data_Analysis/25125359/1).
 
 # Citation
  
